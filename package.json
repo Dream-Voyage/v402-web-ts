@@ -1,7 +1,7 @@
 {
   "name": "@voyage_ai/v402-web-ts",
   "version": "0.1.0",
-  "description": "x402 Payment SDK for SVM and EVM chains with React support",
+  "description": "v402pay platform frontend SDK for seamless Web3 payment integration with Solana and Ethereum support",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
