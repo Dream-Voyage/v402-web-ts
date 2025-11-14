@@ -1,0 +1,55 @@
+/**
+ * x402 Payment SDK - Utilities
+ *
+ * General-purpose utilities for wallet management, network detection, and helpers
+ */
+
+// Wallet utilities
+export {
+  isWalletInstalled,
+  getWalletProvider,
+  formatAddress,
+  markWalletDisconnected,
+  clearWalletDisconnection,
+  isWalletManuallyDisconnected,
+  saveConnectedNetworkType,
+  getConnectedNetworkType,
+  getWalletInstallUrl,
+  getWalletDisplayName,
+} from "./wallet";
+
+// Wallet connection utilities (for demo/UI)
+export {
+  connectWallet,
+  disconnectWallet,
+  getCurrentWallet,
+  onAccountsChanged,
+} from "./wallet-connect";
+
+// Payment helpers (for demo/UI)
+export {
+    makePayment,
+    handlePayment, // deprecated
+  parsePaymentRequired,
+  getSupportedNetworkTypes,
+  type PaymentCallbacks,
+} from "./payment-helpers";
+
+// Network utilities
+export {
+  getNetworkType,
+  isEvmNetwork,
+  isSolanaNetwork,
+  isSolanaAddress,
+  isEvmAddress,
+  getNetworkDisplayName,
+} from "./network";
+
+// General helpers
+export {
+  toAtomicUnits,
+  fromAtomicUnits,
+  sleep,
+  retryWithBackoff,
+  is402Response,
+} from "./helpers";
