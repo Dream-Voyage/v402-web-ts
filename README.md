@@ -8,70 +8,183 @@ v402pay is a decentralized payment platform that helps developers quickly integr
 
 ### Payment Flow
 
+v402pay uses a TCC-like two-phase commit pattern to ensure charges only occur after business logic succeeds:
+
+```mermaid
+flowchart LR
+    Start[User requests content] --> Check{Has Payment<br/>Info?}
+    Check -->|No| Return402["x402: Return 402<br/>Payment Required"]
+    Return402 --> SDK[SDK initiates<br/>payment]
+    SDK --> Wallet[User connects<br/>wallet]
+    Wallet --> Sign[User signs<br/>offline]
+    Sign --> Request2[Second request<br/>with signature]
+    
+    Check -->|Yes| Request2
+    Request2 --> Verify["Phase 1: Verify<br/>Check payment"]
+    Verify --> VerifyCheck{Valid?}
+    VerifyCheck -->|Invalid| Return402
+    VerifyCheck -->|Valid| Execute["Phase 2: Execute<br/>Pass to business"]
+    
+    Execute --> Business[Business logic<br/>Query & generate]
+    Business --> Response["Phase 3: Check<br/>Validate status"]
+    Response --> StatusCheck{Status OK?}
+    
+    StatusCheck -->|Failed| NoSettle[NO charge<br/>Return error]
+    NoSettle --> End1[User sees error]
+    
+    StatusCheck -->|Success| Settle["Phase 4: Settle<br/>Broadcast tx"]
+    Settle --> Chain[Blockchain<br/>confirmation]
+    Chain --> Record[Record txHash]
+    Record --> Display[User sees<br/>content & tx]
+    
+    style Start fill:#e3f2fd
+    style Verify fill:#e1f5ff
+    style Execute fill:#e8f5e9
+    style Response fill:#fff4e1
+    style Settle fill:#fce4ec
+    style VerifyCheck fill:#f5f5f5
+    style StatusCheck fill:#f5f5f5
+    style NoSettle fill:#ffcdd2
+    style Display fill:#c8e6c9
 ```
-┌─────────────┐
-│    User     │
-│ Visits Your │
-│     App     │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────────────────────────────┐
-│  Frontend Calls SDK (with merchantId)   │
-│  - Select Wallet (Phantom/MetaMask)     │
-│  - Connect Wallet                        │
-└──────┬──────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────┐
-│  Payment Request to v402pay Platform    │
-│  Platform Returns Payment Params:       │
-│  - Recipient Address                     │
-│  - Payment Amount                        │
-│  - Token Type                            │
-└──────┬──────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────┐
-│  SDK Builds Transaction & Requests Sign │
-│  - SVM: Build SPL Token Transfer        │
-│  - EVM: Build EIP-712 Signature         │
-└──────┬──────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────┐
-│  User Signs in Wallet (Offline)         │
-│  - No transaction sent yet               │
-│  - Only signature created                │
-└──────┬──────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────┐
-│  Signature Sent to v402pay Platform     │
-└──────┬──────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────┐
-│  v402pay Platform Sends to Blockchain   │
-│  - Platform broadcasts transaction       │
-│  - Wait for confirmation                 │
-└──────┬──────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────┐
-│  v402pay Platform Verifies Payment      │
-│  - Verify Transaction Success            │
-│  - Call Your Callback API                │
-│  - Return API Response to Frontend      │
-└──────┬──────────────────────────────────┘
-       │
-       ▼
-┌─────────────────────────────────────────┐
-│  Frontend Receives Payment Result       │
-│  - Display Success Message               │
-│  - Show Content from Callback API       │
-└─────────────────────────────────────────┘
+
+**Key Features:**
+
+1. **Two-Phase Commit**: Verify payment first, execute business logic, then settle based on business result
+2. **Business First**: No charge if business logic fails, avoiding charge-but-no-delivery scenarios
+3. **Offline Signing**: User signs transaction offline; only broadcasts on-chain after business success
+4. **Atomicity**: Either both business and payment succeed, or neither does
+
+### Delivery Modes
+
+#### Current: Immediate Delivery ⚡
+
+The current implementation uses **immediate delivery** mode:
+
+- **When it happens**: Business callback is triggered immediately after payment verification (Phase 2)
+- **Settlement timing**: On-chain settlement happens after business logic completes
+- **Best for**:
+  - Digital content delivery (articles, videos, API access)
+  - Services without inventory management
+  - Use cases where settlement failure has minimal platform impact
+- **Benefits**:
+  - ✅ Fast user experience
+  - ✅ Lower latency
+  - ✅ User safety guaranteed (no charge if business fails)
+
+**Trade-off**: If settlement fails after business execution, the platform bears minor risk as content was already delivered.
+
+##### Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant SDK as v402pay platform
+    participant x402 as v402(Provided by x402)
+    participant Business as Your Business
+    participant Chain as Blockchain
+
+    Note over User,Business: First Request - No Payment Info
+    User->>Business: 1. Request content (no payment)
+    Business->>x402: Check payment
+    x402->>x402: No payment found
+    x402-->>User: 402 Payment Required<br/>(amount, address, params)
+    
+    Note over User,SDK: User Payment Flow
+    User->>SDK: 2. Initiate payment
+    SDK->>User: Connect wallet (Phantom/MetaMask)
+    User->>SDK: 3. Sign transaction (offline)
+    Note right of SDK: Signature created,<br/>not on-chain yet
+    
+    Note over User,Business: Second Request - With Payment Signature
+    User->>Business: 4. Request with payment signature
+    Business->>x402: Verify payment
+    
+    rect rgb(240, 248, 255)
+        Note right of x402: Phase 1: Verify
+        x402->>x402: Check signature validity
+        x402->>x402: Check amount & address
+        x402->>x402: ✅ Verification passed
+    end
+    
+    rect rgb(240, 255, 240)
+        Note right of x402: Phase 2: Execute
+        x402->>Business: Pass through request
+        Business->>Business: 5. Query database
+        Business->>Business: Generate content
+    end
+    
+    rect rgb(255, 250, 240)
+        Note right of x402: Phase 3: Check Response
+        Business-->>x402: 200 OK + business data
+        x402->>x402: Status < 400, proceed
+    end
+    
+    rect rgb(255, 240, 245)
+        Note right of x402: Phase 4: Settle
+        x402->>Chain: 6. Broadcast signed transaction
+        Chain->>Chain: Process & confirm transaction
+        Chain-->>x402: Transaction hash + confirmation
+        x402->>x402: 7. Record to database<br/>(txHash, status)
+    end
+    
+    x402-->>User: 200 OK + business data<br/>+ X-PAYMENT-RESPONSE
+    User->>User: 8. Display content & tx info
 ```
+
+**Key Points:**
+
+1. **Two Requests**: First request returns 402, second request includes payment signature
+2. **Offline Signing**: User signs in wallet without broadcasting to blockchain
+3. **Verify → Execute → Check → Settle**: Four-phase process ensures safety
+4. **Immediate Delivery**: Your business service executes and returns content immediately after verification
+5. **Settlement After Business**: On-chain transaction only happens after business confirms success
+6. **User Safety**: If business fails (status >= 400), no settlement occurs, no charge
+
+#### Roadmap: Delayed Delivery 🔮
+
+We're planning to offer **delayed delivery** mode as an optional feature:
+
+```mermaid
+flowchart TD
+    A["Phase 1: Verify<br/>Payment verified"] --> B["Lock Inventory<br/>NOT delivered yet"]
+    B --> C["Phase 4: Settle<br/>Settlement on-chain"]
+    C --> D{Settlement Result}
+    D -->|Success| E["v402pay triggers<br/>Delivery Callback API"]
+    D -->|Failed| F["v402pay triggers<br/>Rollback Callback API"]
+    E --> G[Deliver content/goods]
+    F --> H[Release locked inventory]
+    
+    style A fill:#e1f5ff
+    style B fill:#fff9c4
+    style C fill:#fff4e1
+    style D fill:#f0f0f0
+    style E fill:#e8f5e9
+    style F fill:#ffebee
+    style G fill:#c8e6c9
+    style H fill:#ffcdd2
+```
+
+- **When it happens**: Business callback is triggered only after on-chain settlement succeeds
+- **Inventory locking**: Inventory is locked during verification, released on rollback
+- **Best for**:
+  - Physical goods delivery
+  - Asset-based businesses (NFTs, tokens, securities)
+  - High-value transactions requiring strong consistency
+  - Scenarios where inventory management is critical
+- **Benefits**:
+  - ✅ Zero platform risk (no delivery before payment confirmation)
+  - ✅ Strong consistency guarantees
+  - ✅ Distributed transaction safety
+  - ✅ Automatic rollback on failure
+
+**How it works**:
+1. **Verify Phase**: Lock resources/inventory, but don't deliver yet
+2. **Settle Phase**: Attempt on-chain settlement
+3. **On Success**: v402pay platform triggers your delivery callback API
+4. **On Failure**: v402pay platform triggers your rollback callback API to release locks
+
+This feature will be provided by the v402pay platform with configurable options for different merchant needs.
 
 ## 🚀 Quick Start
 
