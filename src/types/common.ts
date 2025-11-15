@@ -43,6 +43,6 @@ export enum NetworkType {
     UNKNOWN = 'unknown'
 }
 
-export const PROD_BACK_URL = "https://v402.onvoyage.ai/api";
-export const DEV_BACK_URL = "http://localhost:3000/api";
+export const PROD_BACK_URL = "https://v402.onvoyage.ai/api/pay";
+export const DEV_BACK_URL = "http://localhost:3000/api/pay";
 

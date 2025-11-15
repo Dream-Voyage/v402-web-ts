@@ -15,9 +15,7 @@
       "import": "./dist/react/index.mjs",
       "require": "./dist/react/index.js",
       "types": "./dist/react/index.d.ts"
-    },
-    "./react/styles.css": "./dist/react/styles.css",
-    "./styles.css": "./dist/react/styles.css"
+    }
   },
   "files": [
     "dist",

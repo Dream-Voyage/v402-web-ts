@@ -1,15 +1,31 @@
 /**
  * WalletConnect Component
  *
- * Pre-built wallet connection UI component
+ * Pre-built wallet connection UI component with inline styles
  */
 
 'use client';
 
-import React from 'react';
+import React, {useState} from 'react';
 import {NetworkType} from '../../types';
 import {formatAddress, getNetworkDisplayName, getWalletInstallUrl, isWalletInstalled,} from '../../utils';
 import {useWallet} from '../hooks/useWalletStore';
+import {
+    buttonsContainerStyle,
+    containerStyle,
+    getAddressStyle,
+    getConnectButtonStyle,
+    getDisconnectButtonStyle,
+    getErrorStyle,
+    getHintStyle,
+    getInstallLinkStyle,
+    getLabelStyle,
+    getSectionStyle,
+    getTitleStyle,
+    walletActionsStyle,
+    walletAddressStyle,
+    walletOptionStyle,
+} from '../styles/inline-styles';
 
 export interface WalletConnectProps {
   supportedNetworks?: NetworkType[];
@@ -42,6 +58,8 @@ export function WalletConnect({
                                 onDisconnect,
                               }: WalletConnectProps) {
   const {address, networkType, isConnecting, error, connect, disconnect} = useWallet();
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  const [hoveredLink, setHoveredLink] = useState<string | null>(null);
 
   const handleConnect = async (network: NetworkType) => {
     try {
@@ -59,23 +77,25 @@ export function WalletConnect({
   };
 
   return (
-      <div className={`x402-wallet-connect ${className}`}>
+      <div style={{ ...containerStyle, ...(className ? {} : {}) }} className={className}>
         {!address ? (
-            <div className="x402-wallet-section">
-              <h3 className="x402-section-title">Choose Your Wallet</h3>
+            <div style={getSectionStyle()}>
+              <h3 style={getTitleStyle()}>Connect Wallet</h3>
 
               {supportedNetworks.length === 0 ? (
-                  <p className="x402-hint">No payment required</p>
+                  <p style={getHintStyle()}>No payment required</p>
               ) : (
-                  <div className="x402-wallet-buttons">
+                  <div style={buttonsContainerStyle}>
                     {supportedNetworks.map((network) => {
                       const installed = isWalletInstalled(network);
                       return (
-                          <div key={network} className="x402-wallet-option">
+                          <div key={network} style={walletOptionStyle}>
                             <button
-                                className="x402-connect-button"
+                                style={getConnectButtonStyle(isConnecting || !installed, hoveredButton === network)}
                                 onClick={() => handleConnect(network)}
                                 disabled={isConnecting || !installed}
+                                onMouseEnter={() => setHoveredButton(network)}
+                                onMouseLeave={() => setHoveredButton(null)}
                             >
                               {isConnecting ? 'Connecting...' : getNetworkDisplayName(network)}
                             </button>
@@ -84,7 +104,9 @@ export function WalletConnect({
                                     href={getWalletInstallUrl(network)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="x402-install-link"
+                                    style={getInstallLinkStyle(hoveredLink === network)}
+                                    onMouseEnter={() => setHoveredLink(network)}
+                                    onMouseLeave={() => setHoveredLink(null)}
                                 >
                                   Install Wallet
                                 </a>
@@ -95,26 +117,31 @@ export function WalletConnect({
                   </div>
               )}
 
-              {error && <p className="x402-error">{error}</p>}
+              {error && <p style={getErrorStyle()}>{error}</p>}
 
-              <p className="x402-hint">
+              <p style={getHintStyle()}>
                 To switch accounts, please change it in your wallet extension
               </p>
             </div>
         ) : (
-            <div className="x402-wallet-info">
-              <div className="x402-wallet-address">
-            <span className="x402-wallet-label">
-              Connected {networkType && `(${getNetworkDisplayName(networkType)})`}:
+            <div style={getSectionStyle()}>
+              <div style={walletAddressStyle}>
+            <span style={getLabelStyle()}>
+              Connected {networkType && `(${getNetworkDisplayName(networkType)})`}
             </span>
-                <span className="x402-address">{formatAddress(address)}</span>
+                <span style={getAddressStyle()}>{formatAddress(address)}</span>
               </div>
-              <div className="x402-wallet-actions">
-                <button className="x402-disconnect-button" onClick={handleDisconnect}>
+              <div style={walletActionsStyle}>
+                <button
+                    style={getDisconnectButtonStyle(hoveredButton === 'disconnect')}
+                    onClick={handleDisconnect}
+                    onMouseEnter={() => setHoveredButton('disconnect')}
+                    onMouseLeave={() => setHoveredButton(null)}
+                >
                   Disconnect
                 </button>
               </div>
-              <p className="x402-hint">
+              <p style={getHintStyle()}>
                 Switch account in your wallet to change address
               </p>
             </div>

@@ -1,7 +1,14 @@
 /**
  * x402 React Components - Default Styles
  * 
- * Optional: Import this CSS for default styling, or use your own styles
+ * ⚠️ DEPRECATED: This CSS file is no longer needed!
+ * 
+ * All styles are now inline within the components.
+ * You can safely remove any imports of this file:
+ * - import '@voyage_ai/v402-web-ts/react/styles.css' ❌
+ * - import '@voyage_ai/v402-web-ts/styles.css' ❌
+ * 
+ * Just use the components directly - styles are built-in! ✅
  */
 
 .x402-wallet-connect {

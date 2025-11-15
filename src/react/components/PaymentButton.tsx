@@ -1,17 +1,18 @@
 /**
  * PaymentButton Component
  *
- * Pre-built payment button component
+ * Pre-built payment button component with inline styles
  * Note: This is a simple wrapper. For complex payment flows,
  * use the SDK directly with usePayment hook for full control.
  */
 
 'use client';
 
-import React from 'react';
+import React, {useState} from 'react';
 import {useWallet} from '../hooks/useWalletStore';
 import {usePayment} from '../hooks/usePayment';
 import {handlePayment} from '../../utils';
+import {getErrorStyle, getPayButtonStyle} from '../styles/inline-styles';
 
 export interface PaymentButtonProps {
   endpoint: string;
@@ -68,6 +69,7 @@ export function PaymentButton({
                               }: PaymentButtonProps) {
   const {networkType} = useWallet();
   const {isProcessing, setIsProcessing, setResult, setError, error} = usePayment();
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleClick = async () => {
     if (!networkType) {
@@ -96,16 +98,21 @@ export function PaymentButton({
     }
   };
 
+  const isDisabled = disabled || isProcessing || !networkType;
+
   return (
       <>
         <button
-            className={`x402-pay-button ${className}`}
+            style={getPayButtonStyle(isDisabled, isHovered)}
+            className={className}
             onClick={handleClick}
-            disabled={disabled || isProcessing || !networkType}
+            disabled={isDisabled}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
           {isProcessing ? 'Processing...' : children}
         </button>
-        {error && <p className="x402-error">{error}</p>}
+        {error && <p style={getErrorStyle()}>{error}</p>}
       </>
   );
 }
