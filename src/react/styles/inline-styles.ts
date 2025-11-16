@@ -116,12 +116,23 @@ const baseButtonStyle: CSSProperties = {
 // 连接按钮样式 - 纯黑/纯白
 export const getConnectButtonStyle = (isDisabled: boolean, isHovered: boolean): CSSProperties => {
   const c = getColors();
+  const darkMode = isDarkMode();
+  
+  if (isDisabled) {
+    return {
+      ...baseButtonStyle,
+      background: c.disabled,
+      color: c.disabledText,
+      cursor: 'not-allowed',
+      border: darkMode ? '1px solid #404040' : '1px solid #d4d4d4',
+    };
+  }
+  
   return {
     ...baseButtonStyle,
-    background: isDisabled ? c.disabled : (isHovered ? c.primaryHover : c.primary),
-    color: isDarkMode() ? '#000000' : '#ffffff',
-    cursor: isDisabled ? 'not-allowed' : 'pointer',
-    opacity: isDisabled ? 0.5 : 1,
+    background: isHovered ? c.primaryHover : c.primary,
+    color: darkMode ? '#000000' : '#ffffff',
+    cursor: 'pointer',
   };
 };
 

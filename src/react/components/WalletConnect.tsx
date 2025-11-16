@@ -83,7 +83,7 @@ export function WalletConnect({
               <h3 style={getTitleStyle()}>Connect Wallet</h3>
 
               {supportedNetworks.length === 0 ? (
-                  <p style={getHintStyle()}>No payment required</p>
+                  <p style={getHintStyle()}>Please install a supported wallet extension</p>
               ) : (
                   <div style={buttonsContainerStyle}>
                     {supportedNetworks.map((network) => {

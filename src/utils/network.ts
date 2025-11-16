@@ -81,6 +81,7 @@ export function isEvmAddress(address: string): boolean {
  */
 export function getNetworkDisplayName(network: string): string {
     const displayNames: Record<string, string> = {
+        'evm': 'EVM',
         'ethereum': 'Ethereum',
         'sepolia': 'Sepolia Testnet',
         'base': 'Base',
