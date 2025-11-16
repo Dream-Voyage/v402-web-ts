@@ -9,7 +9,7 @@ import type {SvmClientConfig} from "../../types";
 import {SolanaNetworkSchema} from "../../types";
 import type {PaymentRequirements, x402Response} from "x402/types";
 import {createSvmPaymentHeader, getDefaultSolanaRpcUrl} from "./payment-header";
-import {wrapPaymentError} from "../../utils";
+import {PaymentOperationError, wrapPaymentError} from "../../utils";
 
 /**
  * Handle SVM payment with automatic x402 flow
@@ -53,10 +53,39 @@ export async function handleSvmPayment(
     // 2. Parse payment requirements from 402 response
     const rawResponse = await initialResponse.json() as x402Response;
 
+    // 3. Check if backend returned an error (e.g., insufficient_funds, verification_failed)
+    // Skip errors that are part of normal 402 flow (initial request without X-PAYMENT)
+    const IGNORED_ERRORS = [
+        'X-PAYMENT header is required',
+        'missing X-PAYMENT header',
+        'payment_required',
+    ];
+    
+    if (rawResponse.error && !IGNORED_ERRORS.includes(rawResponse.error)) {
+        console.error(`❌ Payment verification failed: ${rawResponse.error}`);
+        
+        // Map backend error codes to user-friendly messages
+        const ERROR_MESSAGES: Record<string, string> = {
+            'insufficient_funds': 'Insufficient balance to complete this payment',
+            'invalid_signature': 'Invalid payment signature',
+            'expired': 'Payment authorization has expired',
+            'already_used': 'This payment has already been used',
+            'network_mismatch': 'Payment network does not match',
+            'invalid_payment': 'Invalid payment data',
+            'verification_failed': 'Payment verification failed',
+        };
+        
+        const errorMessage = ERROR_MESSAGES[rawResponse.error] || 
+                            `Payment failed: ${rawResponse.error}`;
+        
+        const error = new Error(errorMessage);
+        throw wrapPaymentError(error);
+    }
+
     const x402Version: number = rawResponse.x402Version;
     const parsedPaymentRequirements: PaymentRequirements[] = rawResponse.accepts || [];
 
-    // 3. Select suitable payment requirement for Solana
+    // 4. Select suitable payment requirement for Solana
     const selectedRequirements = parsedPaymentRequirements.find(
         (req: PaymentRequirements) =>
             req.scheme === "exact" &&
@@ -71,7 +100,7 @@ export async function handleSvmPayment(
         throw new Error("No suitable Solana payment requirements found");
     }
 
-    // 4. Check amount against max value if specified
+    // 5. Check amount against max value if specified
     if (maxPaymentAmount && maxPaymentAmount > BigInt(0)) {
         if (BigInt(selectedRequirements.maxAmountRequired) > maxPaymentAmount) {
             throw new Error(
@@ -80,12 +109,12 @@ export async function handleSvmPayment(
         }
     }
 
-    // 5. Get RPC URL (use provided or default from backend requirements)
+    // 6. Get RPC URL (use provided or default from backend requirements)
     const effectiveRpcUrl = rpcUrl || getDefaultSolanaRpcUrl(selectedRequirements.network);
     console.log(`📍 Using Solana RPC: ${effectiveRpcUrl.substring(0, 40)}...`);
     console.log(`📍 Network from backend: ${selectedRequirements.network}`);
 
-    // 6. Create payment header with error handling
+    // 7. Create payment header with error handling
     let paymentHeader: string;
     try {
         paymentHeader = await createSvmPaymentHeader({
@@ -100,7 +129,7 @@ export async function handleSvmPayment(
         throw wrapPaymentError(error);
     }
 
-    // 7. Retry with payment header
+    // 8. Retry with payment header
     const newInit = {
         ...requestInit,
         method: requestInit?.method || "POST",
@@ -111,7 +140,51 @@ export async function handleSvmPayment(
         },
     };
 
-    return await fetch(endpoint, newInit);
+    const retryResponse = await fetch(endpoint, newInit);
+    
+    // 9. Check if retry still returned 402 with error (e.g., verification failed)
+    if (retryResponse.status === 402) {
+        try {
+            const retryData = await retryResponse.json();
+            
+            // Skip normal 402 errors (shouldn't happen at this point, but be safe)
+            const IGNORED_ERRORS = [
+                'X-PAYMENT header is required',
+                'missing X-PAYMENT header',
+                'payment_required',
+            ];
+            
+            if (retryData.error && !IGNORED_ERRORS.includes(retryData.error)) {
+                console.error(`❌ Payment verification failed: ${retryData.error}`);
+                
+                // Map backend error codes to user-friendly messages
+                const ERROR_MESSAGES: Record<string, string> = {
+                    'insufficient_funds': 'Insufficient balance to complete this payment',
+                    'invalid_signature': 'Invalid payment signature',
+                    'expired': 'Payment authorization has expired',
+                    'already_used': 'This payment has already been used',
+                    'network_mismatch': 'Payment network does not match',
+                    'invalid_payment': 'Invalid payment data',
+                    'verification_failed': 'Payment verification failed',
+                };
+                
+                const errorMessage = ERROR_MESSAGES[retryData.error] || 
+                                    `Payment failed: ${retryData.error}`;
+                
+                const error = new Error(errorMessage);
+                throw wrapPaymentError(error);
+            }
+        } catch (error: any) {
+            // If error is already wrapped, re-throw it
+            if (error instanceof PaymentOperationError) {
+                throw error;
+            }
+            // Otherwise it's a JSON parse error, just return the response
+            console.warn('⚠️ Could not parse retry 402 response:', error);
+        }
+    }
+    
+    return retryResponse;
 }
 
 /**

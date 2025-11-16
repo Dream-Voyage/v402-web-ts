@@ -59,10 +59,39 @@ export async function handleEvmPayment(
   // 2. Parse payment requirements from 402 response
   const rawResponse = await initialResponse.json() as x402Response;
 
+  // 3. Check if backend returned an error (e.g., insufficient_funds after signature)
+  // Skip errors that are part of normal 402 flow (initial request without X-PAYMENT)
+  const IGNORED_ERRORS = [
+    'X-PAYMENT header is required',
+    'missing X-PAYMENT header',
+    'payment_required',
+  ];
+  
+  if (rawResponse.error && !IGNORED_ERRORS.includes(rawResponse.error)) {
+    console.error(`❌ Payment verification failed: ${rawResponse.error}`);
+    
+    // Map backend error codes to user-friendly messages
+    const ERROR_MESSAGES: Record<string, string> = {
+      'insufficient_funds': 'Insufficient balance to complete this payment',
+      'invalid_signature': 'Invalid payment signature',
+      'expired': 'Payment authorization has expired',
+      'already_used': 'This payment has already been used',
+      'network_mismatch': 'Payment network does not match',
+      'invalid_payment': 'Invalid payment data',
+      'verification_failed': 'Payment verification failed',
+    };
+    
+    const errorMessage = ERROR_MESSAGES[rawResponse.error] || 
+                        `Payment failed: ${rawResponse.error}`;
+    
+    const error = new Error(errorMessage);
+    throw wrapPaymentError(error);
+  }
+
   const x402Version: number = rawResponse.x402Version;
   const parsedPaymentRequirements: PaymentRequirements[] = rawResponse.accepts || [];
 
-  // 3. Select suitable payment requirement for EVM
+  // 4. Select suitable payment requirement for EVM
   const selectedRequirements = parsedPaymentRequirements.find(
       (req: PaymentRequirements) =>
           req.scheme === "exact" &&
@@ -78,7 +107,7 @@ export async function handleEvmPayment(
     throw new Error("No suitable EVM payment requirements found");
   }
 
-  // 4. Check amount against max value if specified
+  // 5. Check amount against max value if specified
   if (maxPaymentAmount && maxPaymentAmount > BigInt(0)) {
     if (BigInt(selectedRequirements.maxAmountRequired) > maxPaymentAmount) {
       throw new Error(
@@ -87,10 +116,10 @@ export async function handleEvmPayment(
     }
   }
 
-  // 5. Get target chain ID
+  // 6. Get target chain ID
   const targetChainId = getChainIdFromNetwork(selectedRequirements.network);
 
-  // 6. Get current wallet chainId (if wallet provides it)
+  // 7. Get current wallet chainId (if wallet provides it)
   let currentChainId: number | undefined;
   if (wallet.getChainId) {
     try {
@@ -102,7 +131,7 @@ export async function handleEvmPayment(
     }
   }
 
-  // 7. Switch chain if needed
+  // 8. Switch chain if needed
   const networkNames: Record<number, string> = {
     1: 'Ethereum Mainnet',
     11155111: 'Sepolia Testnet',
@@ -168,7 +197,7 @@ export async function handleEvmPayment(
     }
   }
 
-  // 8. Create payment header with error handling
+  // 9. Create payment header with error handling
   let paymentHeader: string;
   try {
     paymentHeader = await createEvmPaymentHeader({
@@ -182,7 +211,7 @@ export async function handleEvmPayment(
     throw wrapPaymentError(error);
   }
 
-  // 7. Retry with payment header
+  // 10. Retry with payment header
   const newInit = {
     ...requestInit,
     method: requestInit?.method || "POST",
@@ -193,7 +222,51 @@ export async function handleEvmPayment(
     },
   };
 
-  return await fetch(endpoint, newInit);
+  const retryResponse = await fetch(endpoint, newInit);
+  
+  // 11. Check if retry still returned 402 with error (e.g., verification failed)
+  if (retryResponse.status === 402) {
+    try {
+      const retryData = await retryResponse.json();
+      
+      // Skip normal 402 errors (shouldn't happen at this point, but be safe)
+      const IGNORED_ERRORS = [
+        'X-PAYMENT header is required',
+        'missing X-PAYMENT header',
+        'payment_required',
+      ];
+      
+      if (retryData.error && !IGNORED_ERRORS.includes(retryData.error)) {
+        console.error(`❌ Payment verification failed: ${retryData.error}`);
+        
+        // Map backend error codes to user-friendly messages
+        const ERROR_MESSAGES: Record<string, string> = {
+          'insufficient_funds': 'Insufficient balance to complete this payment',
+          'invalid_signature': 'Invalid payment signature',
+          'expired': 'Payment authorization has expired',
+          'already_used': 'This payment has already been used',
+          'network_mismatch': 'Payment network does not match',
+          'invalid_payment': 'Invalid payment data',
+          'verification_failed': 'Payment verification failed',
+        };
+        
+        const errorMessage = ERROR_MESSAGES[retryData.error] || 
+                            `Payment failed: ${retryData.error}`;
+        
+        const error = new Error(errorMessage);
+        throw wrapPaymentError(error);
+      }
+    } catch (error: any) {
+      // If error is already wrapped, re-throw it
+      if (error instanceof PaymentOperationError) {
+        throw error;
+      }
+      // Otherwise it's a JSON parse error, just return the response
+      console.warn('⚠️ Could not parse retry 402 response:', error);
+    }
+  }
+  
+  return retryResponse;
 }
 
 /**

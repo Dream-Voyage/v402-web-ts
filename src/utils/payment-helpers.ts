@@ -113,6 +113,18 @@ export async function makePayment(
             signTypedData: async (domain: any, types: any, message: any) => {
                 return await signer.signTypedData(domain, types, message);
             },
+            // Get current chain ID from wallet
+            getChainId: async () => {
+                const network = await provider.getNetwork();
+                return `0x${network.chainId.toString(16)}`;
+            },
+            // Switch to a different chain
+            switchChain: async (chainId: string) => {
+                await (window as any).ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId }],
+                });
+            },
         };
 
         // Use a placeholder network - handler will use backend's network configuration

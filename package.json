@@ -25,7 +25,11 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "type-check": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "release": "npm run release:patch",
+    "release:patch": "npm version patch && npm publish && git push --follow-tags",
+    "release:minor": "npm version minor && npm publish && git push --follow-tags",
+    "release:major": "npm version major && npm publish && git push --follow-tags"
   },
   "keywords": [
     "x402",
