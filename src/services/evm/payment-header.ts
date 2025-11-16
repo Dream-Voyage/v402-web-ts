@@ -7,6 +7,7 @@
 
 import {ethers} from "ethers";
 import type {CreateEvmPaymentHeaderParams} from "../../types";
+import {wrapPaymentError} from "../../utils";
 
 /**
  * Create X-PAYMENT header for EVM payment (EIP-3009 format)
@@ -42,6 +43,43 @@ export async function createEvmPaymentHeader(
 
   if (!paymentRequirements?.asset) {
     throw new Error("Missing asset (token contract) in payment requirements");
+  }
+
+  // Verify current chain matches target chain (if wallet provides getChainId)
+  if (wallet.getChainId) {
+    try {
+      const currentChainIdHex = await wallet.getChainId();
+      const currentChainId = parseInt(currentChainIdHex, 16);
+
+      if (currentChainId !== chainId) {
+        const networkNames: Record<number, string> = {
+          1: 'Ethereum Mainnet',
+          11155111: 'Sepolia Testnet',
+          8453: 'Base Mainnet',
+          84532: 'Base Sepolia Testnet',
+          137: 'Polygon Mainnet',
+          42161: 'Arbitrum One',
+          10: 'Optimism Mainnet',
+        };
+
+        const currentNetworkName = networkNames[currentChainId] || `Chain ${currentChainId}`;
+        const targetNetworkName = networkNames[chainId] || `Chain ${chainId}`;
+
+        throw new Error(
+          `Network mismatch: Your wallet is connected to ${currentNetworkName}, ` +
+          `but payment requires ${targetNetworkName}. Please switch your wallet to the correct network.`
+        );
+      }
+
+      console.log(`✅ Chain ID verified: ${chainId}`);
+    } catch (error: any) {
+      // If it's our own error, re-throw with better handling
+      if (error.message.includes('Network mismatch')) {
+        throw wrapPaymentError(error);
+      }
+      // Otherwise just log and continue
+      console.warn("Could not verify chainId:", error);
+    }
   }
 
   // Get current timestamp (seconds)
@@ -81,8 +119,15 @@ export async function createEvmPaymentHeader(
     nonce: nonceBytes32,
   };
 
-  // Sign typed data
-  const signature = await wallet.signTypedData(domain, types, authorization);
+  // Sign typed data with error handling
+  let signature: string;
+  try {
+    signature = await wallet.signTypedData(domain, types, authorization);
+    console.log('✅ Signature created successfully');
+  } catch (error: any) {
+    console.error('❌ Failed to create signature:', error);
+    throw wrapPaymentError(error);
+  }
 
   // Build X-PAYMENT header
   const headerPayload = {

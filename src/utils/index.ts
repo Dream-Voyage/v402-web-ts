@@ -55,3 +55,12 @@ export {
   retryWithBackoff,
   is402Response,
 } from "./helpers";
+
+// Payment error handling
+export {
+  parsePaymentError,
+  wrapPaymentError,
+  PaymentOperationError,
+  PaymentErrorCode,
+  type PaymentError,
+} from "./payment-error-handler";

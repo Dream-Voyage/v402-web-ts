@@ -97,7 +97,7 @@ export async function makePayment(
 
         response = await handleSvmPayment(endpoint, {
             wallet: solana,
-            network: 'solana-devnet',
+            network: 'solana', // Will use backend's network configuration
         });
     } else if (networkType === NetworkType.EVM) {
         // EVM payment
@@ -115,12 +115,10 @@ export async function makePayment(
             },
         };
 
-        // Detect network from endpoint or use default
-        const network = endpoint.includes('sepolia') ? 'base-sepolia' : 'base';
-
+        // Use a placeholder network - handler will use backend's network configuration
         response = await handleEvmPayment(endpoint, {
             wallet,
-            network: network as any,
+            network: 'base', // Will use backend's network configuration
         });
     } else {
         throw new Error(`不支持的网络类型: ${networkType}`);

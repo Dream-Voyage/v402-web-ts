@@ -31,6 +31,7 @@ export interface EvmWalletAdapter {
         message: any
     ) => Promise<string>;
     switchChain?: (chainId: string) => Promise<void>;
+    getChainId?: () => Promise<string>; // Returns hex format like "0x14a34"
 }
 
 /**

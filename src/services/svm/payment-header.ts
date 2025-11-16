@@ -6,21 +6,22 @@
  */
 
 import {
-    ComputeBudgetProgram,
-    Connection,
-    PublicKey,
-    TransactionInstruction,
-    TransactionMessage,
-    VersionedTransaction,
+  ComputeBudgetProgram,
+  Connection,
+  PublicKey,
+  TransactionInstruction,
+  TransactionMessage,
+  VersionedTransaction,
 } from "@solana/web3.js";
 import {
-    createTransferCheckedInstruction,
-    getAssociatedTokenAddress,
-    getMint,
-    TOKEN_2022_PROGRAM_ID,
-    TOKEN_PROGRAM_ID,
+  createTransferCheckedInstruction,
+  getAssociatedTokenAddress,
+  getMint,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import type {CreateSvmPaymentHeaderParams} from "../../types";
+import {wrapPaymentError} from "../../utils";
 
 /**
  * Create X-PAYMENT header for Solana payment
@@ -165,7 +166,14 @@ export async function createSvmPaymentHeader(
     throw new Error("Connected wallet does not support signTransaction");
   }
 
-  const userSignedTx = await wallet.signTransaction(transaction);
+  let userSignedTx: VersionedTransaction;
+  try {
+    userSignedTx = await wallet.signTransaction(transaction);
+    console.log('✅ Transaction signed successfully');
+  } catch (error: any) {
+    console.error('❌ Failed to sign transaction:', error);
+    throw wrapPaymentError(error);
+  }
 
   // Serialize the signed transaction
   const serializedTransaction = Buffer.from(userSignedTx.serialize()).toString("base64");
@@ -193,7 +201,7 @@ export function getDefaultSolanaRpcUrl(network: string): string {
   const normalized = network.toLowerCase();
 
   if (normalized === "solana" || normalized === "solana-mainnet") {
-    return "https://api.mainnet-beta.solana.com";
+    return "https://cathee-fu8ezd-fast-mainnet.helius-rpc.com";
   } else if (normalized === "solana-devnet") {
     return "https://api.devnet.solana.com";
   }

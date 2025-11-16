@@ -9,6 +9,7 @@ import type {SvmClientConfig} from "../../types";
 import {SolanaNetworkSchema} from "../../types";
 import type {PaymentRequirements, x402Response} from "x402/types";
 import {createSvmPaymentHeader, getDefaultSolanaRpcUrl} from "./payment-header";
+import {wrapPaymentError} from "../../utils";
 
 /**
  * Handle SVM payment with automatic x402 flow
@@ -79,16 +80,25 @@ export async function handleSvmPayment(
         }
     }
 
-    // 5. Get RPC URL (use provided or default)
-    const effectiveRpcUrl = rpcUrl || getDefaultSolanaRpcUrl(network);
+    // 5. Get RPC URL (use provided or default from backend requirements)
+    const effectiveRpcUrl = rpcUrl || getDefaultSolanaRpcUrl(selectedRequirements.network);
+    console.log(`📍 Using Solana RPC: ${effectiveRpcUrl.substring(0, 40)}...`);
+    console.log(`📍 Network from backend: ${selectedRequirements.network}`);
 
-    // 6. Create payment header
-    const paymentHeader = await createSvmPaymentHeader({
-        wallet,
-        paymentRequirements: selectedRequirements,
-        x402Version,
-        rpcUrl: effectiveRpcUrl,
-    });
+    // 6. Create payment header with error handling
+    let paymentHeader: string;
+    try {
+        paymentHeader = await createSvmPaymentHeader({
+            wallet,
+            paymentRequirements: selectedRequirements,
+            x402Version,
+            rpcUrl: effectiveRpcUrl,
+        });
+        console.log('✅ Payment header created successfully');
+    } catch (error: any) {
+        console.error('❌ Failed to create payment header:', error);
+        throw wrapPaymentError(error);
+    }
 
     // 7. Retry with payment header
     const newInit = {

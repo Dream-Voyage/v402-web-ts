@@ -9,6 +9,7 @@ import type {EvmClientConfig} from "../../types";
 import {EvmNetworkSchema} from "../../types";
 import type {PaymentRequirements, x402Response} from "x402/types";
 import {createEvmPaymentHeader, getChainIdFromNetwork} from "./payment-header";
+import {PaymentErrorCode, PaymentOperationError, wrapPaymentError} from "../../utils";
 
 /**
  * Handle EVM payment with automatic x402 flow
@@ -86,24 +87,100 @@ export async function handleEvmPayment(
     }
   }
 
-  // 5. Switch chain if needed (if wallet supports it)
+  // 5. Get target chain ID
   const targetChainId = getChainIdFromNetwork(selectedRequirements.network);
-  if (wallet.switchChain) {
+
+  // 6. Get current wallet chainId (if wallet provides it)
+  let currentChainId: number | undefined;
+  if (wallet.getChainId) {
     try {
-      await wallet.switchChain(`0x${targetChainId.toString(16)}`);
+      const chainIdHex = await wallet.getChainId();
+      currentChainId = parseInt(chainIdHex, 16);
+      console.log(`📍 Current wallet chain: ${currentChainId}`);
     } catch (error) {
-      console.warn("Failed to switch chain:", error);
+      console.warn("⚠️ Failed to get current chainId:", error);
+    }
+  }
+
+  // 7. Switch chain if needed
+  const networkNames: Record<number, string> = {
+    1: 'Ethereum Mainnet',
+    11155111: 'Sepolia Testnet',
+    8453: 'Base Mainnet',
+    84532: 'Base Sepolia Testnet',
+    137: 'Polygon Mainnet',
+    42161: 'Arbitrum One',
+    10: 'Optimism Mainnet',
+  };
+
+  // If we know current chainId and it doesn't match, we MUST switch
+  if (currentChainId && currentChainId !== targetChainId) {
+    if (!wallet.switchChain) {
+      const currentNetworkName = networkNames[currentChainId] || `Chain ${currentChainId}`;
+      const targetNetworkName = networkNames[targetChainId] || selectedRequirements.network;
+
+      const error = new Error(
+        `Network mismatch: Your wallet is connected to ${currentNetworkName}, ` +
+        `but payment requires ${targetNetworkName}. Please switch to ${targetNetworkName} manually in your wallet.`
+      );
+      throw wrapPaymentError(error);
+    }
+
+    try {
+      console.log(`🔄 Switching to chain ${targetChainId}...`);
+      await wallet.switchChain(`0x${targetChainId.toString(16)}`);
+      console.log(`✅ Successfully switched to chain ${targetChainId}`);
+    } catch (error: any) {
+      console.error('❌ Failed to switch chain:', error);
+
+      const targetNetworkName = networkNames[targetChainId] || selectedRequirements.network;
+      const wrappedError = wrapPaymentError(error);
+
+      // Create new error with better message for network switch failure
+      let finalError: PaymentOperationError;
+      if (wrappedError.code === PaymentErrorCode.USER_REJECTED) {
+        finalError = new PaymentOperationError({
+          code: wrappedError.code,
+          message: wrappedError.message,
+          userMessage: `You rejected the network switch request. Please switch to ${targetNetworkName} manually.`,
+          originalError: wrappedError.originalError,
+        });
+      } else {
+        finalError = new PaymentOperationError({
+          code: PaymentErrorCode.NETWORK_SWITCH_FAILED,
+          message: wrappedError.message,
+          userMessage: `Failed to switch to ${targetNetworkName}. Please switch manually in your wallet.`,
+          originalError: wrappedError.originalError,
+        });
+      }
+
+      throw finalError;
+    }
+  } else if (wallet.switchChain && !currentChainId) {
+    // Try to switch even if we don't know current chain (best effort)
+    try {
+      console.log(`🔄 Attempting to switch to chain ${targetChainId}...`);
+      await wallet.switchChain(`0x${targetChainId.toString(16)}`);
+      console.log(`✅ Switch attempted successfully`);
+    } catch (error) {
+      console.warn("⚠️ Failed to switch chain (best effort):", error);
       // Continue anyway - wallet might already be on correct chain
     }
   }
 
-  // 6. Create payment header
-  const paymentHeader = await createEvmPaymentHeader({
-    wallet,
-    paymentRequirements: selectedRequirements,
-    x402Version,
-    chainId: targetChainId,
-  });
+  // 8. Create payment header with error handling
+  let paymentHeader: string;
+  try {
+    paymentHeader = await createEvmPaymentHeader({
+      wallet,
+      paymentRequirements: selectedRequirements,
+      x402Version,
+      chainId: targetChainId,
+    });
+  } catch (error: any) {
+    console.error('❌ Failed to create payment header:', error);
+    throw wrapPaymentError(error);
+  }
 
   // 7. Retry with payment header
   const newInit = {
