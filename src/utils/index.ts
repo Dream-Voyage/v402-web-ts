@@ -24,6 +24,8 @@ export {
   disconnectWallet,
   getCurrentWallet,
   onAccountsChanged,
+  onChainChanged,
+  onWalletDisconnect,
 } from "./wallet-connect";
 
 // Payment helpers (for demo/UI)

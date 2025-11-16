@@ -5,11 +5,11 @@
 
 import {NetworkType} from "../types";
 import {
-    clearWalletDisconnection,
-    getConnectedNetworkType as getStoredNetworkType,
-    isWalletManuallyDisconnected as checkManualDisconnect,
-    markWalletDisconnected,
-    saveConnectedNetworkType
+  clearWalletDisconnection,
+  getConnectedNetworkType as getStoredNetworkType,
+  isWalletManuallyDisconnected as checkManualDisconnect,
+  markWalletDisconnected,
+  saveConnectedNetworkType
 } from "./wallet";
 
 /**
@@ -128,6 +128,59 @@ export function onAccountsChanged(
 
   return () => {
     ethereum.removeListener?.('accountsChanged', handler);
+  };
+}
+
+/**
+ * Listen for chain/network changes (EVM only)
+ */
+export function onChainChanged(
+    callback: (chainId: string) => void
+): () => void {
+  if (typeof window === 'undefined' || !(window as any).ethereum) {
+    return () => {
+    };
+  }
+
+  const ethereum = (window as any).ethereum;
+  const handler = (chainId: string) => {
+    console.log('🔄 Chain changed to:', chainId);
+    callback(chainId);
+  };
+
+  ethereum.on('chainChanged', handler);
+
+  return () => {
+    ethereum.removeListener?.('chainChanged', handler);
+  };
+}
+
+/**
+ * Listen for wallet disconnect (Solana only)
+ */
+export function onWalletDisconnect(
+    callback: () => void
+): () => void {
+  if (typeof window === 'undefined') {
+    return () => {
+    };
+  }
+
+  const solana = (window as any).solana;
+  if (!solana) {
+    return () => {
+    };
+  }
+
+  const handler = () => {
+    console.log('🔌 Solana wallet disconnected');
+    callback();
+  };
+
+  solana.on('disconnect', handler);
+
+  return () => {
+    solana.removeListener?.('disconnect', handler);
   };
 }
 

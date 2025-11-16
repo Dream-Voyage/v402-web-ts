@@ -7,12 +7,14 @@
 import {useCallback, useEffect, useState} from 'react';
 import {NetworkType} from '../../types';
 import {
-    connectWallet as connectWalletUtil,
-    disconnectWallet as disconnectWalletUtil,
-    getConnectedNetworkType,
-    getCurrentWallet,
-    isWalletManuallyDisconnected,
-    onAccountsChanged,
+  connectWallet as connectWalletUtil,
+  disconnectWallet as disconnectWalletUtil,
+  getConnectedNetworkType,
+  getCurrentWallet,
+  isWalletManuallyDisconnected,
+  onAccountsChanged,
+  onChainChanged,
+  onWalletDisconnect,
 } from '../../utils';
 
 export interface UseWalletReturn {
@@ -75,7 +77,7 @@ export function useWallet(): UseWalletReturn {
     initWallet();
 
     // Listen for account changes (EVM only)
-    const unsubscribe = onAccountsChanged((accounts) => {
+    const unsubscribeAccountChange = onAccountsChanged((accounts) => {
       const connectedType = getConnectedNetworkType();
       if (connectedType === NetworkType.EVM) {
         if (accounts.length === 0) {
@@ -90,8 +92,33 @@ export function useWallet(): UseWalletReturn {
       }
     });
 
+    // Listen for network/chain changes (EVM only)
+    const unsubscribeChainChange = onChainChanged(() => {
+      const connectedType = getConnectedNetworkType();
+      if (connectedType === NetworkType.EVM) {
+        console.log('⚠️ Network changed detected - disconnecting wallet');
+        disconnectWalletUtil();
+        setAddress(null);
+        setNetworkType(null);
+        setError('Network changed. Please reconnect your wallet.');
+      }
+    });
+
+    // Listen for wallet disconnect (Solana only)
+    const unsubscribeWalletDisconnect = onWalletDisconnect(() => {
+      const connectedType = getConnectedNetworkType();
+      if (connectedType === NetworkType.SOLANA || connectedType === NetworkType.SVM) {
+        console.log('⚠️ Solana wallet disconnected');
+        disconnectWalletUtil();
+        setAddress(null);
+        setNetworkType(null);
+      }
+    });
+
     return () => {
-      unsubscribe();
+      unsubscribeAccountChange();
+      unsubscribeChainChange();
+      unsubscribeWalletDisconnect();
     };
   }, []); // Only run on mount
 

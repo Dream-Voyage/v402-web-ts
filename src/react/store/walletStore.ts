@@ -13,6 +13,8 @@ import {
     getCurrentWallet,
     isWalletManuallyDisconnected,
     onAccountsChanged,
+    onChainChanged,
+    onWalletDisconnect,
 } from '../../utils';
 
 type Listener = () => void;
@@ -56,6 +58,33 @@ class WalletStore {
             console.log('🔄 Account changed:', accounts[0]);
           }
         }
+      }
+    });
+
+    // Listen for network/chain changes (EVM only)
+    onChainChanged(() => {
+      const connectedType = getConnectedNetworkType();
+      if (connectedType === NetworkType.EVM) {
+        console.log('⚠️ Network changed detected - disconnecting wallet');
+        disconnectWalletUtil();
+        this.setState({
+          address: null,
+          networkType: null,
+          error: 'Network changed. Please reconnect your wallet.',
+        });
+      }
+    });
+
+    // Listen for wallet disconnect (Solana only)
+    onWalletDisconnect(() => {
+      const connectedType = getConnectedNetworkType();
+      if (connectedType === NetworkType.SOLANA || connectedType === NetworkType.SVM) {
+        console.log('⚠️ Solana wallet disconnected');
+        disconnectWalletUtil();
+        this.setState({
+          address: null,
+          networkType: null,
+        });
       }
     });
   }
