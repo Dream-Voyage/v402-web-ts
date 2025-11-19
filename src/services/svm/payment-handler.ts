@@ -73,6 +73,7 @@ export async function handleSvmPayment(
             'network_mismatch': 'Payment network does not match',
             'invalid_payment': 'Invalid payment data',
             'verification_failed': 'Payment verification failed',
+            'invalid_exact_svm_payload_transaction_simulation_failed': 'Transaction simulation failed due to insufficient balance. Please check your wallet balance carefully and ensure you have enough funds to cover the payment and transaction fees.',
         };
         
         const errorMessage = ERROR_MESSAGES[rawResponse.error] || 
@@ -166,6 +167,7 @@ export async function handleSvmPayment(
                     'network_mismatch': 'Payment network does not match',
                     'invalid_payment': 'Invalid payment data',
                     'verification_failed': 'Payment verification failed',
+                    'invalid_exact_svm_payload_transaction_simulation_failed': 'Transaction simulation failed due to insufficient balance. Please check your wallet balance carefully and ensure you have enough funds to cover the payment and transaction fees.',
                 };
                 
                 const errorMessage = ERROR_MESSAGES[retryData.error] || 

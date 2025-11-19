@@ -54,8 +54,9 @@ export function usePaymentInfo(merchantId: string, endpoint: string = PROD_BACK_
         setError(null);
 
         try {
-            endpoint = `${endpoint}/${merchantId}`
-            const response = await fetch(endpoint, {method: 'POST'});
+            // 使用新变量而不是修改参数
+            const fullEndpoint = `${endpoint}/${merchantId}`;
+            const response = await fetch(fullEndpoint, {method: 'POST'});
 
             if (response.status === 402) {
                 const body = await response.json();
@@ -81,7 +82,7 @@ export function usePaymentInfo(merchantId: string, endpoint: string = PROD_BACK_
 
     useEffect(() => {
         fetchPaymentInfo();
-    }, [endpoint]);
+    }, [endpoint, merchantId]);
 
     return {
         paymentInfo,

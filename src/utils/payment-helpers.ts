@@ -81,7 +81,8 @@ export async function makePayment(
     merchantId: string,
     endpoint: string = PROD_BACK_URL,
 ): Promise<Response> {
-    endpoint = `${endpoint}/${merchantId}`;
+    // 使用新变量而不是修改参数
+    const fullEndpoint = `${endpoint}/${merchantId}`;
     let response: Response;
 
     if (networkType === NetworkType.SOLANA || networkType === NetworkType.SVM) {
@@ -95,7 +96,7 @@ export async function makePayment(
             await solana.connect();
         }
 
-        response = await handleSvmPayment(endpoint, {
+        response = await handleSvmPayment(fullEndpoint, {
             wallet: solana,
             network: 'solana', // Will use backend's network configuration
         });
@@ -128,7 +129,7 @@ export async function makePayment(
         };
 
         // Use a placeholder network - handler will use backend's network configuration
-        response = await handleEvmPayment(endpoint, {
+        response = await handleEvmPayment(fullEndpoint, {
             wallet,
             network: 'base', // Will use backend's network configuration
         });
