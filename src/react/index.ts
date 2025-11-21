@@ -22,9 +22,15 @@
  * ```
  */
 
+// Import styles - will be auto-loaded by modern bundlers (Next.js, Vite, etc.)
+import './styles.css';
+
 // Hooks (No Provider needed!)
 export { useWallet } from './hooks/useWalletStore';
 export type { UseWalletReturn } from './hooks/useWalletStore';
+
+export { usePageNetwork } from './hooks/usePageNetwork';
+export type { UsePageNetworkOptions } from './hooks/usePageNetwork';
 
 // Hooks
 export { usePayment } from './hooks/usePayment';
@@ -36,3 +42,6 @@ export type { UsePaymentInfoReturn } from './hooks/usePaymentInfo';
 // Components
 export { WalletConnect } from './components/WalletConnect';
 export type { WalletConnectProps } from './components/WalletConnect';
+
+export { default as V402Checkout } from './components/V402Checkout';
+export type { V402CheckoutProps } from './components/V402Checkout';

@@ -8,7 +8,9 @@
 import {NetworkType} from "../types";
 
 const WALLET_DISCONNECTED_KEY = 'wallet_manually_disconnected';
+const WALLET_DISCONNECTED_NETWORKS_KEY = 'wallet_disconnected_networks'; // 记录每个网络的断开状态
 const CONNECTED_NETWORK_TYPE_KEY = 'connected_network_type';
+const WALLET_ADDRESSES_KEY = 'wallet_addresses_cache'; // 多网络钱包地址缓存
 
 /**
  * Check if a wallet is installed for a specific network type
@@ -63,32 +65,71 @@ export function formatAddress(address: string): string {
 }
 
 /**
- * Mark wallet as manually disconnected
+ * Get all disconnected networks
  */
-export function markWalletDisconnected(): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(WALLET_DISCONNECTED_KEY, 'true');
-    localStorage.removeItem(CONNECTED_NETWORK_TYPE_KEY);
+function getDisconnectedNetworks(): Partial<Record<NetworkType, boolean>> {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  try {
+    const cached = localStorage.getItem(WALLET_DISCONNECTED_NETWORKS_KEY);
+    return cached ? JSON.parse(cached) : {};
+  } catch (error) {
+    return {};
   }
 }
 
 /**
- * Clear wallet disconnection flag
+ * Mark wallet as manually disconnected (for specific network)
  */
-export function clearWalletDisconnection(): void {
+export function markWalletDisconnected(networkType?: NetworkType): void {
   if (typeof window !== 'undefined') {
-    localStorage.removeItem(WALLET_DISCONNECTED_KEY);
+    if (networkType) {
+      // 标记特定网络为断开
+      const disconnected = getDisconnectedNetworks();
+      disconnected[networkType] = true;
+      localStorage.setItem(WALLET_DISCONNECTED_NETWORKS_KEY, JSON.stringify(disconnected));
+    } else {
+      // 兼容旧版：全局断开
+      localStorage.setItem(WALLET_DISCONNECTED_KEY, 'true');
+      localStorage.removeItem(CONNECTED_NETWORK_TYPE_KEY);
+    }
   }
 }
 
 /**
- * Check if user manually disconnected wallet
+ * Clear wallet disconnection flag (for specific network or all)
  */
-export function isWalletManuallyDisconnected(): boolean {
+export function clearWalletDisconnection(networkType?: NetworkType): void {
+  if (typeof window !== 'undefined') {
+    if (networkType) {
+      // 清除特定网络的断开标记
+      const disconnected = getDisconnectedNetworks();
+      delete disconnected[networkType];
+      localStorage.setItem(WALLET_DISCONNECTED_NETWORKS_KEY, JSON.stringify(disconnected));
+    } else {
+      // 兼容旧版：清除全局断开标记
+      localStorage.removeItem(WALLET_DISCONNECTED_KEY);
+    }
+  }
+}
+
+/**
+ * Check if user manually disconnected wallet (for specific network)
+ */
+export function isWalletManuallyDisconnected(networkType?: NetworkType): boolean {
   if (typeof window === 'undefined') {
     return false;
   }
-  return localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true';
+  
+  if (networkType) {
+    // 检查特定网络是否断开
+    const disconnected = getDisconnectedNetworks();
+    return disconnected[networkType] === true;
+  } else {
+    // 兼容旧版：检查全局断开标记
+    return localStorage.getItem(WALLET_DISCONNECTED_KEY) === 'true';
+  }
 }
 
 /**
@@ -138,5 +179,62 @@ export function getWalletDisplayName(networkType: NetworkType): string {
       return 'Phantom';
     default:
       return 'Unknown Wallet';
+  }
+}
+
+/**
+ * Get all cached wallet addresses
+ */
+export function getAllWalletAddresses(): Partial<Record<NetworkType, string>> {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  try {
+    const cached = localStorage.getItem(WALLET_ADDRESSES_KEY);
+    return cached ? JSON.parse(cached) : {};
+  } catch (error) {
+    console.error('Failed to parse wallet addresses cache:', error);
+    return {};
+  }
+}
+
+/**
+ * Save wallet address for a specific network
+ */
+export function saveWalletAddress(networkType: NetworkType, address: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const addresses = getAllWalletAddresses();
+  addresses[networkType] = address;
+  localStorage.setItem(WALLET_ADDRESSES_KEY, JSON.stringify(addresses));
+}
+
+/**
+ * Get cached wallet address for a specific network
+ */
+export function getCachedWalletAddress(networkType: NetworkType): string | null {
+  const addresses = getAllWalletAddresses();
+  return addresses[networkType] || null;
+}
+
+/**
+ * Remove wallet address for a specific network
+ */
+export function removeWalletAddress(networkType: NetworkType): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const addresses = getAllWalletAddresses();
+  delete addresses[networkType];
+  localStorage.setItem(WALLET_ADDRESSES_KEY, JSON.stringify(addresses));
+}
+
+/**
+ * Clear all cached wallet addresses
+ */
+export function clearAllWalletAddresses(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(WALLET_ADDRESSES_KEY);
   }
 }

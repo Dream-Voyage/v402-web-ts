@@ -16,6 +16,12 @@ export {
   getConnectedNetworkType,
   getWalletInstallUrl,
   getWalletDisplayName,
+  // 多网络钱包缓存
+  getAllWalletAddresses,
+  saveWalletAddress,
+  getCachedWalletAddress,
+  removeWalletAddress,
+  clearAllWalletAddresses,
 } from "./wallet";
 
 // Wallet connection utilities (for demo/UI)
@@ -23,6 +29,7 @@ export {
   connectWallet,
   disconnectWallet,
   getCurrentWallet,
+  switchNetwork, // 新增：切换网络
   onAccountsChanged,
   onChainChanged,
   onWalletDisconnect,

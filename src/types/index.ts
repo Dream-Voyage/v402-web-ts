@@ -23,10 +23,6 @@ export type {
   SupportedPaymentKindsResponse,
   ErrorReasons,
 
-  // Chain-specific payloads
-  ExactSvmPayload,
-  ExactEvmPayload,
-
   // Token types
   SPLTokenAmount,
 
@@ -43,8 +39,6 @@ export {
   SettleResponseSchema,
   SupportedPaymentKindSchema,
   SupportedPaymentKindsResponseSchema,
-  ExactSvmPayloadSchema,
-  ExactEvmPayloadSchema,
 
   // Constants
   SupportedSVMNetworks,

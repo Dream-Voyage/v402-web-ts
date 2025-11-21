@@ -4,12 +4,11 @@
  */
 
 import {z} from "zod";
-import {type ExactEvmPayload, ExactEvmPayloadSchema, type PaymentRequirements,} from "x402/types";
+import {ExactEvmPayloadSchema, type PaymentRequirements} from "x402/types";
 import type {EvmWalletAdapter} from "./common";
 
 // Re-export x402 EVM types
-export type {ExactEvmPayload, PaymentRequirements};
-export {ExactEvmPayloadSchema};
+export type {PaymentRequirements};
 
 /**
  * EVM network enum (common networks)

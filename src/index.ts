@@ -48,8 +48,6 @@ export type {
   x402Response,
   VerifyResponse,
   SettleResponse,
-  ExactSvmPayload,
-  ExactEvmPayload,
   SPLTokenAmount,
 } from "./types";
 

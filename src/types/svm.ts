@@ -4,12 +4,11 @@
  */
 
 import {z} from "zod";
-import {type ExactSvmPayload, ExactSvmPayloadSchema, type PaymentRequirements,} from "x402/types";
+import {ExactSvmPayloadSchema, type PaymentRequirements} from "x402/types";
 import type {WalletAdapter} from "./common";
 
 // Re-export x402 SVM types
-export type {ExactSvmPayload, PaymentRequirements};
-export {ExactSvmPayloadSchema};
+export type {PaymentRequirements};
 
 /**
  * Solana network enum

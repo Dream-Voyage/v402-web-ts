@@ -6,10 +6,13 @@
 import {NetworkType} from "../types";
 import {
   clearWalletDisconnection,
+  getCachedWalletAddress,
   getConnectedNetworkType as getStoredNetworkType,
   isWalletManuallyDisconnected as checkManualDisconnect,
   markWalletDisconnected,
-  saveConnectedNetworkType
+  removeWalletAddress,
+  saveConnectedNetworkType,
+  saveWalletAddress
 } from "./wallet";
 
 /**
@@ -55,21 +58,42 @@ export async function connectWallet(networkType: NetworkType): Promise<string> {
   }
 
   // Save connection state
-  clearWalletDisconnection();
+  clearWalletDisconnection(networkType); // 清除该网络的断开标记
   saveConnectedNetworkType(networkType);
+  // 缓存钱包地址，支持多网络切换
+  saveWalletAddress(networkType, address);
 
   return address;
 }
 
 /**
  * Disconnect wallet
+ * @param networkType - 可选，指定要断开的网络类型。如果不指定，则断开当前网络
+ * @param clearAll - 是否清除所有网络的缓存，默认为 false
  */
-export function disconnectWallet(): void {
-  markWalletDisconnected();
+export function disconnectWallet(networkType?: NetworkType, clearAll: boolean = false): void {
+  if (clearAll) {
+    // 清除所有网络的钱包缓存
+    const { clearAllWalletAddresses } = require('./wallet');
+    clearAllWalletAddresses();
+    markWalletDisconnected();
+  } else if (networkType) {
+    // 只清除指定网络的缓存
+    removeWalletAddress(networkType);
+    // 不调用 markWalletDisconnected()，避免影响其他网络
+  } else {
+    // 清除当前连接的网络缓存
+    const currentNetwork = getStoredNetworkType();
+    if (currentNetwork) {
+      removeWalletAddress(currentNetwork);
+    }
+    // 不调用 markWalletDisconnected()，避免影响其他网络
+  }
 }
 
 /**
  * Get current wallet address
+ * 优先从缓存读取，如果缓存存在则验证其有效性
  */
 export async function getCurrentWallet(networkType?: NetworkType): Promise<string | null> {
   if (typeof window === 'undefined') {
@@ -81,30 +105,46 @@ export async function getCurrentWallet(networkType?: NetworkType): Promise<strin
     return null;
   }
 
+  // 先尝试从缓存读取
+  const cachedAddress = getCachedWalletAddress(type);
+  
   try {
+    let currentAddress: string | null = null;
+    
     switch (type) {
       case NetworkType.EVM: {
-        if (!(window as any).ethereum) return null;
+        if (!(window as any).ethereum) return cachedAddress;
         const accounts = await (window as any).ethereum.request({
           method: 'eth_accounts',
           params: [],
         });
-        return accounts && accounts.length > 0 ? accounts[0] : null;
+        currentAddress = accounts && accounts.length > 0 ? accounts[0] : null;
+        break;
       }
 
       case NetworkType.SOLANA:
       case NetworkType.SVM: {
         const solana = (window as any).solana;
-        if (!solana || !solana.isConnected) return null;
-        return solana.publicKey?.toString() || null;
+        if (!solana || !solana.isConnected) return cachedAddress;
+        currentAddress = solana.publicKey?.toString() || null;
+        break;
       }
 
       default:
-        return null;
+        return cachedAddress;
     }
+
+    // 如果钱包返回的地址与缓存不一致，更新缓存
+    if (currentAddress && currentAddress !== cachedAddress) {
+      saveWalletAddress(type, currentAddress);
+    }
+    
+    // 如果钱包没有返回地址但有缓存，返回缓存（钱包可能暂时未连接但用户没有断开）
+    return currentAddress || cachedAddress;
   } catch (error) {
     console.error('Failed to get current wallet:', error);
-    return null;
+    // 如果出错，返回缓存的地址
+    return cachedAddress;
   }
 }
 
@@ -185,8 +225,34 @@ export function onWalletDisconnect(
 }
 
 /**
+ * 切换到指定网络
+ * 如果该网络已有缓存的钱包地址，则直接切换
+ * 如果没有缓存，则需要连接钱包
+ */
+export async function switchNetwork(networkType: NetworkType): Promise<string | null> {
+  const cachedAddress = getCachedWalletAddress(networkType);
+  
+  if (cachedAddress) {
+    // 如果有缓存地址，直接切换网络类型
+    saveConnectedNetworkType(networkType);
+    clearWalletDisconnection(networkType); // 清除该网络的断开标记
+    
+    // 验证钱包是否仍然连接
+    const currentAddress = await getCurrentWallet(networkType);
+    if (currentAddress) {
+      return currentAddress;
+    }
+  }
+  
+  // 如果没有缓存或验证失败，返回 null 表示需要重新连接
+  return null;
+}
+
+/**
  * Re-export for convenience
  */
 export {getStoredNetworkType as getConnectedNetworkType};
 export {checkManualDisconnect as isWalletManuallyDisconnected};
+export {getCachedWalletAddress, saveWalletAddress, removeWalletAddress};
+export {getAllWalletAddresses} from './wallet';
 
