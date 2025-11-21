@@ -1,17 +1,17 @@
 /**
  * x402 Payment SDK - React Package
- * 
+ *
  * Pre-built React hooks and components for easy integration
- * 
+ *
  * ## Quick Start
- * 
+ *
  * ```tsx
  * import { WalletConnect, PaymentButton, useWallet, usePayment } from '@x402/sdk/react';
- * 
+ *
  * // No Provider needed! Just use the hooks directly
  * function App() {
  *   const { address } = useWallet();
- *   
+ *
  *   return (
  *     <div>
  *       <WalletConnect />
@@ -36,7 +36,3 @@ export type { UsePaymentInfoReturn } from './hooks/usePaymentInfo';
 // Components
 export { WalletConnect } from './components/WalletConnect';
 export type { WalletConnectProps } from './components/WalletConnect';
-
-export { PaymentButton } from './components/PaymentButton';
-export type { PaymentButtonProps } from './components/PaymentButton';
-

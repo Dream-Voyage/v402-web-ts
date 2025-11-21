@@ -68,6 +68,7 @@ export function getSupportedNetworkTypes(paymentRequirements: PaymentRequirement
  * @param endpoint - API endpoint
  * @param networkType - Network type (from useWallet)
  * @param merchantId - @see our website to apply
+ * @param additionalParams - Optional additional parameters to send with the request (default: {})
  * @returns Response from the payment
  *
  * @example
@@ -75,15 +76,37 @@ export function getSupportedNetworkTypes(paymentRequirements: PaymentRequirement
  * const response = await makePayment('/api/endpoint', networkType);
  * const data = await response.json();
  * ```
+ *
+ * @example
+ * ```tsx
+ * // With additional parameters
+ * const response = await makePayment(
+ *   '/api/endpoint',
+ *   networkType,
+ *   merchantId,
+ *   { userId: '123', customField: 'value' }
+ * );
+ * ```
  */
 export async function makePayment(
     networkType: NetworkType,
     merchantId: string,
     endpoint: string = PROD_BACK_URL,
+    additionalParams?: Record<string, any>,
 ): Promise<Response> {
     // 使用新变量而不是修改参数
     const fullEndpoint = `${endpoint}/${merchantId}`;
     let response: Response;
+
+    // 准备请求配置，如果有额外参数则添加到 body 中
+    const requestInit: RequestInit = additionalParams && Object.keys(additionalParams).length > 0
+        ? {
+            body: JSON.stringify(additionalParams),
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        }
+        : {};
 
     if (networkType === NetworkType.SOLANA || networkType === NetworkType.SVM) {
         // Solana payment
@@ -99,7 +122,7 @@ export async function makePayment(
         response = await handleSvmPayment(fullEndpoint, {
             wallet: solana,
             network: 'solana', // Will use backend's network configuration
-        });
+        }, requestInit);
     } else if (networkType === NetworkType.EVM) {
         // EVM payment
         if (!(window as any).ethereum) {
@@ -132,43 +155,11 @@ export async function makePayment(
         response = await handleEvmPayment(fullEndpoint, {
             wallet,
             network: 'base', // Will use backend's network configuration
-        });
+        }, requestInit);
     } else {
         throw new Error(`不支持的网络类型: ${networkType}`);
     }
 
     return response;
-}
-
-/**
- * Unified payment handler with callbacks (deprecated - use makePayment directly)
- * @deprecated Use makePayment() directly and handle callbacks in your component
- */
-export async function handlePayment(
-    endpoint: string,
-    networkType: NetworkType,
-    callbacks?: PaymentCallbacks
-): Promise<any> {
-    try {
-        callbacks?.onStart?.();
-
-        const response = await makePayment(networkType, '', endpoint);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`请求失败 (${response.status}): ${errorText}`);
-        }
-
-        const result = await response.json();
-        callbacks?.onSuccess?.(result);
-        return result;
-
-    } catch (err: any) {
-        const errorMessage = err.message || '支付失败';
-        callbacks?.onError?.(errorMessage);
-        throw err;
-    } finally {
-        callbacks?.onFinish?.();
-    }
 }
 

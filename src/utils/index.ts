@@ -31,7 +31,6 @@ export {
 // Payment helpers (for demo/UI)
 export {
     makePayment,
-    handlePayment, // deprecated
   parsePaymentRequired,
   getSupportedNetworkTypes,
   type PaymentCallbacks,
