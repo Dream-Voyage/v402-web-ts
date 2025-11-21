@@ -28,7 +28,7 @@ interface HeaderInfo {
 }
 
 export interface V402CheckoutProps {
-    merchantId: string;
+    checkoutId: string;
     headerInfo?: HeaderInfo; // header 配置信息
     isModal?: boolean; // 是否在模态框中显示
     onPaymentComplete?: (response: any) => void; // 支付完成后的回调函数
@@ -50,7 +50,7 @@ const notify = {
 };
 
 export default function V402Checkout({
-                                         merchantId,
+                                         checkoutId: checkoutId,
                                          headerInfo = {},
                                          isModal = false,
                                          onPaymentComplete,
@@ -70,7 +70,7 @@ export default function V402Checkout({
         supportedNetworks,
         isLoading: fetchingPaymentInfo,
         paymentInfo
-    } = usePaymentInfo(merchantId, endpoint, additionalParams);
+    } = usePaymentInfo(checkoutId, endpoint, additionalParams);
 
     // 确定实际期望的网络（优先使用 prop，否则使用第一个支持的网络）
     const targetNetwork = expectedNetwork || supportedNetworks[0];
@@ -147,7 +147,7 @@ export default function V402Checkout({
         setIsProcessing(true);
 
         try {
-            const response = await makePayment(networkType, merchantId, endpoint, additionalParams);
+            const response = await makePayment(networkType, checkoutId, endpoint, additionalParams);
             const data = await response.json();
             setResult(data);
             notify.success('Payment Successful!', 'Your payment has been processed successfully.');
