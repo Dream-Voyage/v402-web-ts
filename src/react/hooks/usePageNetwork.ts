@@ -22,49 +22,21 @@ export interface UsePageNetworkOptions {
  * 用于确保页面始终连接到期望的网络
  * 自动处理网络切换，保持其他网络的缓存不受影响
  * 
- * @param expectedNetwork - 页面期望的网络类型
+ * @param expectedNetwork - 页面期望的网络类型（NetworkType，如 EVM、SVM）
  * @param options - 配置选项
  * 
  * @example
  * ```tsx
- * // A 页面 - 期望 EVM 网络
- * function PageA() {
+ * // EVM 页面
+ * function EvmPage() {
  *   const { address, isConnecting } = usePageNetwork(NetworkType.EVM);
- *   
- *   return (
- *     <div>
- *       {isConnecting ? '切换中...' : `EVM 地址: ${address}`}
- *     </div>
- *   );
+ *   return <div>{isConnecting ? 'Connecting...' : address}</div>;
  * }
  * 
- * // B 页面 - 期望 Solana 网络
- * function PageB() {
- *   const { address, isConnecting } = usePageNetwork(NetworkType.SOLANA);
- *   
- *   return (
- *     <div>
- *       {isConnecting ? '切换中...' : `Solana 地址: ${address}`}
- *     </div>
- *   );
- * }
- * ```
- * 
- * @example
- * ```tsx
- * // 禁用自动切换，手动控制
- * function PageC() {
- *   const wallet = usePageNetwork(NetworkType.EVM, { autoSwitch: false });
- *   
- *   return (
- *     <div>
- *       {wallet.networkType !== NetworkType.EVM && (
- *         <button onClick={() => wallet.ensureNetwork(NetworkType.EVM)}>
- *           切换到 EVM
- *         </button>
- *       )}
- *     </div>
- *   );
+ * // SVM 页面
+ * function SvmPage() {
+ *   const { address, isConnecting } = usePageNetwork(NetworkType.SVM);
+ *   return <div>{isConnecting ? 'Connecting...' : address}</div>;
  * }
  * ```
  */
@@ -80,16 +52,15 @@ export function usePageNetwork(
   const wallet = useWallet();
 
   useEffect(() => {
-    if (autoSwitch && switchOnMount) {
-      // 只在当前网络与期望不匹配时才切换
-      if (wallet.networkType !== expectedNetwork) {
-        console.log('🎯 usePageNetwork: Auto-switching to', expectedNetwork);
-        wallet.ensureNetwork(expectedNetwork).catch(err => {
-          console.error('Failed to ensure network:', err);
-        });
-      }
-    }
-  }, [expectedNetwork, autoSwitch, switchOnMount]);
+    if (!autoSwitch || !switchOnMount) return;
+    
+    // ensureNetwork 内部会检查是否手动断开，如果是则不会重连
+    wallet.ensureNetwork(expectedNetwork).catch(err => {
+      console.error('Failed to ensure network:', err);
+    });
+    // 只在 expectedNetwork 改变时执行，避免无限循环
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expectedNetwork]);
 
   return wallet;
 }

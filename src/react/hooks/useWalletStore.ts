@@ -20,7 +20,7 @@ export interface UseWalletReturn {
     connect: (networkType: NetworkType) => Promise<void>;
     switchNetwork: (networkType: NetworkType) => Promise<void>;
     ensureNetwork: (networkType: NetworkType) => Promise<void>;
-    disconnect: (clearCache?: boolean) => void;
+    disconnect: () => void;
     clearError: () => void;
 }
 
@@ -58,7 +58,7 @@ export function useWallet(): UseWalletReturn {
         connect: (type: NetworkType) => walletStore.connect(type),
         switchNetwork: (type: NetworkType) => walletStore.switchNetwork(type),
         ensureNetwork: (type: NetworkType) => walletStore.ensureNetwork(type),
-        disconnect: (clearCache?: boolean) => walletStore.disconnect(clearCache),
+        disconnect: () => walletStore.disconnect(),
         clearError: () => walletStore.clearError(),
     };
 }
