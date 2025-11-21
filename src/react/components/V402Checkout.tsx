@@ -50,7 +50,7 @@ const notify = {
 };
 
 export default function V402Checkout({
-                                         checkoutId: checkoutId,
+                                         checkoutId,
                                          headerInfo = {},
                                          isModal = false,
                                          onPaymentComplete,
