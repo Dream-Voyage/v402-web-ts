@@ -13,7 +13,7 @@ import {
 import {usePaymentInfo} from "../hooks/usePaymentInfo";
 import {usePageNetwork} from "../hooks/usePageNetwork";
 import {usePayment} from "../hooks/usePayment";
-import {DEV_BACK_URL} from "../../types/common";
+import {PROD_BACK_URL} from "../../types/common";
 import {formatAddress, makePayment} from "../../utils";
 import {WalletConnect} from './WalletConnect';
 import {NetworkType} from "../../types";
@@ -63,7 +63,8 @@ export default function V402Checkout({
         subtitle = 'onvoyage.ai',
         tooltipText = 'V402Pay - Accept Crypto Payments Easier'
     } = headerInfo;
-    let endpoint = DEV_BACK_URL;
+    // 默认prod
+    const endpoint = PROD_BACK_URL;
 
     // 获取支付信息以确定期望的网络
     const {
